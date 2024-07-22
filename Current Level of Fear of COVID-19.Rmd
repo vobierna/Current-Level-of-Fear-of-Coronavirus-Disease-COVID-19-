@@ -1,0 +1,590 @@
+---
+output:
+  bookdown::markdown_document2:
+---
+
+
+
+# Current Level of Fear of Coronavirus Disease (COVID-19)
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  include=FALSE,
+  echo=FALSE,
+  message=FALSE,
+  warning=FALSE
+)
+```
+
+## Introduction
+
+Novel coronavirus disease (COVID-19) began in Wuhan, China in December 2019 and has spread worldwide since then. This new coronavirus disease turned into an outbreak reaching around the world in as little as three months showing the serious threat of this outbreak. The first patient with coronavirus disease was identified in Philippines on January 30, 2020.
+
+It has been 2 years since the spread of coronavirus, to control the spread, different protocols and restrictions were implemented which affected people's daily lives. Due to the infectious power of the coronavirus and daily cases of infections and reported deaths, people are scared of being infected with coronavirus disease. With nationwide COVID-19 vaccinations and decrease in number of active cases, restrictions are being relaxed and things are slowly getting back to normal. With the current situation we're in, are people still scared of being infected with coronovirus? If yes, to what extent? with a lot of people getting vaccinated and decrease in active cases are people still extremely scared of the virus? This study aims to determine the current level of fear of among Philippine population in getting infected with coronavirus disease.
+
+With online survey as inadequate sampling technique in mind, the study was conducted online over span of 10 days from November 2 to November 11, 2021. Participants were 132 residents from different regions around the Philippines. Google forms were used as a platform to design online surveys. Respondents were asked about (i) demographic and epidemiological information (ii) Current level of fear of being infected with coronavirus disease (iii) Current level of fear of relatives becoming infected with coronavirus disease (iv) Level of mental health over the past 4 weeks. Respondents were found from social media platform such as facebook.
+
+## Results and Analysis
+
+Statistical analyses were performed using R software. Shapiro-Wilk test was used to determine normality of set of data. Statistical tests were interpreted at 5% significance level.
+
+
+```{r load data}
+#load data
+library(readxl)
+pth<-paste(getwd(),"/Current Level of Fear of COVID-19.xlsx", sep="")
+df.raw<-read_excel(path=pth,sheet="Fear of COVID-19")
+```
+
+```{r cleaning#1}
+#check column names
+library(dplyr)
+library(tidyverse)
+df <- df.raw
+names(df) <- gsub(" ","_", names(df))
+colnames(df)
+```
+```{r cleaning#2}
+#check variable types
+str(df)
+```
+
+```{r cleaning#3}
+#Count the number of unique items in each columns
+
+apply(df, 2, function(col)length(unique(col))) #shows count of unique entries in each column
+
+#shows the unique entries in each columns
+l <- list()
+for (i in colnames(df)[-(1:2)]){
+  l[[i]] <- deframe(unique(df[,i]))
+}
+l
+```
+```{r cleaning#4}
+#Cleaning/removing unnecessary entries
+
+#Employment Status
+ch <- c("Student", "student", "Minor")
+for (i in ch){
+df[df$Employment_Status==i,which(colnames(df)=="Employment_Status")] <- "Unemployed"
+}
+
+#Work setup
+df[which(df$Work_setup=="Office" & df$Employment_Status=="Employed"),"Work_setup"] <- "On-site"
+
+#CVDTEST changing maybe answer to yes
+df[df$CVDTEST=="Maybe","CVDTEST"] <- "Yes"
+
+#CVDVACCINE
+df[!(df$CVDVACCINE %in% c("Yes","No")),"CVDVACCINE"] <- "Yes"
+
+#CVDVACCINEB
+df[which(df$CVDVACCINE=="Yes" & df$CVDVACCINEB=="Sinovac"),"CVDVACCINEB"] <- "CoronaVac (Sinovac)"
+```
+
+
+```{r cleaning#5}
+#check rows and columns with missing values
+
+apply(df, 2, function(col)sum(is.na(col)))
+#check if all NA came from unemployed
+deframe(unique(df[is.na(df$Work_setup),"Employment_Status"]))
+#check if all NA came from unvaccinated respondent s
+deframe(unique(df[is.na(df$CVDVACCINEB),"CVDVACCINE"]))
+#remove Yes response for CVDVACCINE with NA CVDVACCINEB
+df <- df[!(is.na(df$CVDVACCINEB) & df$CVDVACCINE=="Yes"),]
+dim(df)
+```
+```{r cleaning#6}
+#convert age group to factor variables with ordered levels
+
+df$Age_Group <- factor(df$Age_Group, levels=c("Generation X (1965-1980)", "Millennials (1981-1996)", "Generation Z (1997 through today)"), order=TRUE)
+```
+
+### Demographic and Epidemiological data of Respondents
+
+```{r Frequency table, collapse=TRUE, include=TRUE, echo=TRUE, results='asis'}
+
+#Frequency tables for demogaphic and epidemiological information
+
+library(knitr)
+library(janitor)
+
+t1 <- tabyl(df$Sex)
+kable(t1 %>%
+  arrange(desc(percent)) %>%
+  adorn_totals("row") %>%
+  adorn_pct_formatting(), col.names=c("Gender","Count","Percent")
+  , caption="Table 1: Frequency Table of Gender")
+
+t2 <- tabyl(df$Marital_Status)
+kable(t2 %>%
+  arrange(desc(percent)) %>%
+  adorn_totals("row") %>%
+  adorn_pct_formatting(), col.names=c("Marital Status","Count","Percent")
+  , caption="Table 2: Frequency Table of Marital Status")
+  
+t3 <- tabyl(df$Age_Group)
+kable(t3 %>%
+  arrange(desc(percent)) %>%
+  adorn_totals("row") %>%
+  adorn_pct_formatting(), col.names=c("Age Group","Count","Percent")
+  , caption = "Table 3: Frequency Table of Age Group")
+
+t4 <- tabyl(df$Employment_Status)
+kable(t4 %>%
+  arrange(desc(percent)) %>%
+  adorn_totals("row") %>%
+  adorn_pct_formatting(), col.names=c("Employment Status","Count","Percent"),
+  caption="Table 4: Frequency Table of Employment Status")
+
+t5 <- tabyl(df$Region)
+kable(t5 %>%
+  arrange(desc(percent)) %>%
+  adorn_totals("row") %>%
+  adorn_pct_formatting(), col.names=c("Region","Count","Percent")
+  , caption = "Table 5: Frequency Table of Region")
+
+```
+```{r Frequency table2, include=TRUE, echo=TRUE, results='asis'}
+#CVDTEST, CVDVACCINE, and CVDVACCINEB
+
+t1 <- tabyl(df$CVDTEST)
+kable(t1 %>%
+  arrange(desc(percent)) %>%
+  adorn_totals("row") %>%
+  adorn_pct_formatting(), col.names=c("Tested Positive","Count","Percent")
+  , caption="Table 6: Frequency Table of Respondents who Tested Positive for COVID-19")
+  
+t2 <- tabyl(df$CVDVACCINE)
+kable(t2 %>%
+  arrange(desc(percent)) %>%
+  adorn_totals("row") %>%
+  adorn_pct_formatting(), col.names=c("Vaccinated","Count","Percent")
+  , caption="Table 7: Frequency Table of Vaccinated Respondents")
+
+df.vaccinated <- df[df$CVDVACCINE=="Yes",]
+
+t3 <- tabyl(df$CVDVACCINE)
+kable(t3 %>%
+  arrange(desc(percent)) %>%
+  adorn_totals("row") %>%
+  adorn_pct_formatting(), col.names=c("Vaccine Brand","Count","Percent")
+  , caption="Table 8: Frequency Table of COVID-19 Vaccine")
+
+```
+
+```{r Graph of Gender and Marital Status}
+#Graph of Gender and Marital Status
+
+library(ggplot2)
+library(gridExtra)
+p1 <- ggplot(df, aes(x=Sex)) + geom_bar(color="black", fill="cornflowerblue", aes(y=..prop.., group=1)) + theme(axis.title.x = element_blank())
+p2 <- ggplot(df, aes(x=Marital_Status)) + geom_bar(color="black", fill="cornflowerblue", aes(y=..prop.., group=1)) + theme(axis.title.x = element_blank())
+
+grid.arrange(p1, p2, ncol=2)
+```
+
+
+```{r Graph of Age Group}
+#Graph of Age Group
+
+p3 <- ggplot(df, aes(x="",y=..count..,fill=Age_Group)) + geom_bar()
+p3 + coord_polar("y", start=0) + scale_fill_brewer(palette = "Blues") + theme_minimal() + theme(axis.title.x = element_blank(),axis.title.y = element_blank()) 
+```
+
+```{r Employment Status}
+#Employment Status
+
+df.employed <- df[df$Employment_Status=="Employed",]
+table(df.employed$Work_setup)/nrow(df.employed)
+```
+
+
+```{r Graph of Employment status and work setup}
+#Graph of Employment status and work setup
+
+p1 <- ggplot(df, aes(x=Employment_Status)) + geom_bar(color="black", fill="cornflowerblue")
+
+p2 <- ggplot(df.employed, aes(x=Work_setup)) + geom_bar(color="black", fill="cornflowerblue")
+
+grid.arrange(p1, p2, ncol=2)
+```
+
+
+```{r Region}
+#Region
+
+df$Regionv2 <- NA
+df[df$Region=="NCR - National Capital Region", "Regionv2"] <- "NCR"
+df[!df$Region=="NCR - National Capital Region", "Regionv2"] <- "Outside NCR"
+```
+
+```{r Graph of Region}
+#Graph of Region
+ggplot(df, aes(x=Region)) + geom_bar(color="black", fill="cornflowerblue") + coord_flip()
+```
+
+
+```{r Graph of CVDTEST, CVDVACCINE, and CVDVACCINEB}
+
+#Graph of CVDTEST, CVDVACCINE, and CVDVACCINEB
+p1 <- ggplot(df, aes(x=CVDTEST)) + geom_bar(color="black", fill="cornflowerblue")
+p2 <- ggplot(df, aes(x=CVDVACCINE)) + geom_bar(color="black", fill="cornflowerblue")
+
+grid.arrange(p1, p2, ncol=2)
+```
+
+```{r Graph COVID-19 Vaccine Brands}
+#Graph COVID-19 Vaccine Brands
+p3 <- ggplot(df.vaccinated, aes(x=CVDVACCINEB, fill=CVDVACCINEB)) + geom_bar() + theme(axis.text.x = element_blank(), axis.title.x = element_blank(), legend.position = "none") + coord_flip()
+p3
+```
+
+### Numerical Summaries
+
+```{r Numerical summaries, include=TRUE, echo=TRUE, results='asis'}
+#NumHH, PF, RF, MHEALTH
+
+library(pastecs)
+attach(df)
+num <- cbind(NumHH, PF, RF, MHEALTH)
+options(scipen = 100, digits=2)
+kable(stat.desc(num, basic=F),
+      caption = "Table 9: Numerical Summaries of Number of Household Members, Level of Fear of Being infected with COVID-19, and Level of Fear of Relative becoming Infected with COVID-19")
+```
+
+```{r, include=TRUE, echo=TRUE}
+#Graph of NumHH, PF, RF, MHEALTH
+library(grid)
+
+p1 <- ggplot(df, aes(x=as.factor(NumHH))) + geom_bar(width=1, color="black", fill="cornflowerblue", aes(y=..prop.., group=1)) + labs(x="Number of Households Members", y="Proportion")
+p2 <- ggplot(df, aes(x=as.factor(PF))) + geom_bar(width=1, color="black", fill="cornflowerblue",aes(y=..prop.., group=1)) + labs(x="Level of Fear in\n catching COVID-19", y="Proportion")
+p3 <- ggplot(df, aes(x=as.factor(RF))) + geom_bar(width=1, color="black", fill="cornflowerblue", aes(y=..prop.., group=1)) + labs(x="Level of Fear that a relative\n will catch COVID-19", y="Proportion")
+p4 <- ggplot(df, aes(x=as.factor(MHEALTH))) + geom_bar(width=1, color="black", fill="cornflowerblue", aes(y=..prop.., group=1)) + labs(x="Mental Health in \n past 4 Weeks", y="Proportion")
+
+grid.arrange(p1, p2, p3, p4, ncol=2, top=textGrob("Figure 1",gp=gpar(font=3)))
+```
+
+Figure 1 shows the distribution of number household members, fear of being infected with COVID-19, fear of relatives becoming infected with COVID-19, and mental health of the respondents. It shows that the average number of household members is around five. More than 70% of the respondents have high level of fear in catching COVID-19. Respondents' was much higher with 80% of them reporting their fear higher than five. Mental health of the respondents are still high with 67% of them reporting their mental health higher than five.
+
+
+```{r normality test}
+
+#Test for normality
+
+shapiro.test(df$NumHH)
+shapiro.test(df$PF)
+shapiro.test(df$RF)
+shapiro.test(df$MHEALTH)
+
+#The resulting p-value shows that there is sufficient evidence to reject the null hypothesis that number of household members, fear of being infected with COVID-19, fear of relative becoming infected with COVID-19, and mental health of respondents are normally distributed. Hence, the number of household members, fear of being infected with COVID-19, fear of relative becoming infected with COVID-19, and mental health of respondents are not normally distributed
+```
+
+```{r test for median}
+wilcox.test(df$PF, mu=6, alternative="greater")
+
+#The resulting p-value shows that there is sufficient evidence to reject the null hypothesis that the median of fear of being infected with COVID-19 is equal to 6. Hence, the median of fear of being infected with COVID-19 is greater than 6.
+```
+
+
+```{r test for median2}
+wilcox.test(df$RF, mu=7, alternative="greater")
+
+#The resulting p-value shows that there is sufficient evidence to reject the null hypothesis that the median of fear of relative becoming infected with COVID-19 is equal to 7. Hence, the median of fear of relative becoming infected with COVID-19 is greater than 7.
+```
+
+
+```{r test for median3}
+wilcox.test(df$MHEALTH, mu=5, alternative="greater")
+
+#The resulting p-value shows that there is sufficient evidence to reject the null hypothesis that the median of mental health of respondents is equal to 5. Hence, the median of mental health of respondents is greater than 5
+```
+
+
+```{r PF vs RF}
+wilcox.test(df$PF, df$RF)
+
+#The resulting p-value shows that there is sufficient evidence to reject the null hypothesis that the true location shift is equal to 0. Hence, the median of fear of being infected with COVID-19 is the equal to the median of fear of relative becoming infected with COVID-19.
+```
+
+```{r gender vs PR RF, include=TRUE, echo=TRUE}
+p1 <- ggplot(df, aes(x=Sex, y=PF, fill=Sex)) + geom_boxplot()
+p2 <- ggplot(df, aes(x=Sex, y=RF, fill=Sex)) + geom_boxplot()
+
+grid.arrange(p1, p2, ncol=2, top=textGrob("Figure 2",gp=gpar(font=3)))
+```
+
+Figure 2 shows that Females have higher level of fear in catching COVID-19 compared to males. Females also have higher level of fear that a relative will catch COVID-19 compared to males.
+```{r}
+wilcox.test(df[df$Sex=="Male",]$PF, df[df$Sex=="Female",]$PF)
+
+#The resulting p-value shows that there is sufficient evidence to reject the null hypothesis that the true location shift is equal to 0. Hence, the median of fear of being infected with COVID-19 between male and female are not equal.
+
+```
+
+```{r}
+wilcox.test(df[df$Sex=="Male",]$RF, df[df$Sex=="Female",]$RF)
+
+#The resulting p-value shows that there is sufficient evidence to reject the null hypothesis that the true location shift is equal to 0. Hence, the median of fear of relative becoming infected with COVID-19 between male and female are not equal.
+```
+
+
+```{r region vs PF and RF}
+summary(df[df$Regionv2=="NCR","PF"])
+summary(df[!df$Regionv2=="NCR","PF"])
+summary(df[df$Regionv2=="NCR","RF"])
+summary(df[!df$Regionv2=="NCR","RF"])
+```
+
+```{r Graph region vs PF and RF, include=TRUE, echo=TRUE}
+
+p1 <- ggplot(df, aes(x=Regionv2, y=PF, fill=Regionv2)) + geom_boxplot()
+p2 <- ggplot(df, aes(x=Regionv2, y=RF, fill=Regionv2)) + geom_boxplot()
+
+grid.arrange(p1, p2, ncol=1, top=textGrob("Figure 3",gp=gpar(font=3)))
+```
+
+Figure 3 shows there is no significant difference in the level of fear between NCR and areas outside NCR.
+
+```{r}
+wilcox.test(df[df$Regionv2=="NCR",]$PF, df[!df$Regionv2=="NCR",]$PF)
+
+#The resulting p-value shows that there is no sufficient evidence to reject the null hypothesis that the true location shift is equal to 0. Hence, the median of fear of being infected with COVID-19 between NCR and outside NCR region is equal.
+```
+
+
+```{r}
+wilcox.test(df[df$Regionv2=="NCR",]$RF, df[!df$Regionv2=="NCR",]$RF)
+
+#The resulting p-value shows that there is no sufficient evidence to reject the null hypothesis that the true location shift is equal to 0. Hence, the median of fear of relative becoming infected with COVID-19 between NCR and outside NCR region is equal.
+```
+
+
+```{r age group vs PF and RF}
+age.group <- unique(df$Age_Group)
+for (i in age.group){
+  print(i)
+  print(summary(df[df$Age_Group==i,"PF"]))
+  print(i)
+  print(summary(df[df$Age_Group==i,"RF"]))
+}
+```
+
+```{r Graph age group vs PF and RF, include=TRUE, echo=TRUE}
+p1 <- ggplot(df, aes(x=Age_Group, y=PF, fill=Age_Group)) + geom_boxplot() + theme(axis.title.x = element_blank(), axis.text.x = element_blank())
+p2 <- ggplot(df, aes(x=Age_Group, y=RF, fill=Age_Group)) + geom_boxplot() +
+theme(axis.title.x = element_blank(), axis.text.x = element_blank())
+
+grid.arrange(p1, p2, ncol=1, top=textGrob("Figure 4",gp=gpar(font=3)))
+```
+
+Figure 4 shows there is significant difference in the level of fear of catching COVID-19 between age group. However after statistical test, with p-value=0.2, it was determined that there is no significant difference in the level of fear of catching COVID-19 between age group. Figure 4 also shows there is significant difference in the level of fear that a relative will catch COVID-19 between age groups. After statistical test, with p-value =0.02, the significant difference was confirmed.
+
+```{r}
+kruskal.test(PF~Age_Group, data=df)
+
+#The resulting p-value shows that there is no sufficient evidence to reject the null hypothesis that the median of fear of being infected with COVID-19 between age groups are equal.
+```
+
+```{r}
+kruskal.test(RF~Age_Group, data=df)
+pairwise.wilcox.test(df$RF, df$Age_Group, p.adjust.method="BH")
+
+#The resulting p-value shows that there is sufficient evidence to reject the null hypothesis that the median of fear of relative becoming infected with COVID-19 between age groups are equal. Hence, the median of fear of relative becoming infected with COVID-19 between age groups are not equal.
+```
+
+```{r Employment Status vs PF and RF}
+summary(df[df$Employment_Status=="Employed",]$PF)
+summary(df[df$Employment_Status=="Unemployed",]$PF)
+summary(df[df$Employment_Status=="Employed",]$RF)
+summary(df[df$Employment_Status=="Unemployed",]$RF)
+```
+
+```{r Graph Employment Status vs PF and RF, include=TRUE, echo=TRUE}
+
+p1 <- ggplot(df, aes(x=Employment_Status, y=PF, fill=Employment_Status)) + geom_boxplot()
+p2 <- ggplot(df, aes(x=Employment_Status, y=RF, fill=Employment_Status)) + geom_boxplot()
+
+grid.arrange(p1, p2, ncol=1, top=textGrob("Figure 5",gp=gpar(font=3)))
+```
+
+Figure 5 shows there is no significant difference in the level of fear of catching COVID-19 between employed and unemployed repondents.
+
+```{r}
+wilcox.test(PF~Employment_Status, df)
+
+#The resulting p-value shows that there is no sufficient evidence to reject the null hypothesis that the median of fear of being infected with COVID-19 between employed and unemployed is equal. Hence, the median of fear of being infected with COVID-19 between employed and unemployed is equal.
+```
+
+```{r}
+wilcox.test(RF~Employment_Status, data=df)
+
+#The resulting p-value shows that there is no sufficient evidence to reject the null hypothesis that the median of fear of relative becoming infected with COVID-19 is equal. Hence, the median of fear of relative becoming infected with COVID-19 is equal.
+```
+
+
+```{r cvdvaccine vs PF and RF}
+summary(df[df$CVDVACCINE=="Yes", "PF"])
+summary(df[df$CVDVACCINE=="No", "PF"])
+summary(df[df$CVDVACCINE=="Yes", "RF"])
+summary(df[df$CVDVACCINE=="No", "RF"])
+```
+
+```{r Graph cvdvaccine vs PF and RF, include=TRUE, echo=TRUE}
+p1 <- ggplot(df, aes(x=CVDVACCINE, y=PF, fill=CVDVACCINE)) + geom_boxplot()
+p2 <- ggplot(df, aes(x=CVDVACCINE, y=RF, fill=CVDVACCINE)) + geom_boxplot()
+
+grid.arrange(p1, p2, ncol=1, top=textGrob("Figure 6",gp=gpar(font=3)))
+```
+
+Figure 6 shows there is no significant difference in level of fear of catching COVID-19 between vaccinated and unvaccinated respondents.
+
+```{r}
+wilcox.test(PF~CVDVACCINE, data=df)
+
+#The resulting p-value shows that there is no sufficient evidence to reject the null hypothesis that the median of fear of being infected with COVID-19 between vaccinated and non-vaccinated persons are equal. Hence, the median of fear of being infected with COVID-19 between vaccinated and non-vaccinated persons are equal.
+```
+
+
+```{r}
+wilcox.test(RF~CVDVACCINE, data=df)
+
+#The resulting p-value shows that there is no sufficient evidence to reject the null hypothesis that the median of fear of relative becoming infected with COVID-19 between vaccinated and non-vaccinated persons are equal. Hence, the median of fear of relative becoming infected with COVID-19 between vaccinated and non-vaccinated persons are equal.
+```
+
+```{r CVDVACCINEB vs PF and RF}
+vaccinated <- unique(df.vaccinated$CVDVACCINEB)
+for (i in vaccinated){
+  print(i)
+  print(summary(df.vaccinated[df.vaccinated$CVDVACCINEB==i,"PF"]))
+  print(i)
+  print(summary(df.vaccinated[df.vaccinated$CVDVACCINEB==i,"RF"]))
+}
+```
+
+```{r Graph CVDVACCINEB vs PF and RF}
+p1 <- ggplot(df.vaccinated, aes(x=CVDVACCINEB, y=PF, fill=CVDVACCINEB)) + geom_boxplot() + theme(axis.title.x=element_blank(), axis.text.x = element_blank())
+p2 <- ggplot(df.vaccinated, aes(x=CVDVACCINEB, y=RF, fill=CVDVACCINEB)) + geom_boxplot() + theme(axis.title.x=element_blank(), axis.text.x = element_blank())
+
+grid.arrange(p1, p2, ncol=1)
+```
+```{r}
+kruskal.test(PF~CVDVACCINEB, data=df)
+
+#The resulting p-value shows that there is no sufficient evidence to reject the null hypothesis that the median of fear of being infected with COVID-19 between persons vaccinated with different brands are equal. Hence, the median of fear of being infected with COVID-19 between persons vaccinated with different brands are equal.
+```
+
+
+```{r}
+kruskal.test(RF~CVDVACCINEB, data=df)
+
+#The resulting p-value shows that there is no sufficient evidence to reject the null hypothesis that the median of fear relative becoming infected with COVID-19 between persons vaccinated with different brands are equal. Hence, the median of fear relative becoming infected with COVID-19 between persons vaccinated with different brands are equal.
+```
+
+
+```{r cvdtest vs PF and RF}
+summary(df[df$CVDTEST=="Yes","PF"])
+summary(df[df$CVDTEST=="No","PF"])
+summary(df[df$CVDTEST=="Yes","RF"])
+summary(df[df$CVDTEST=="No","RF"])
+```
+
+```{r Graph cvdtest vs PF and RF, include=TRUE, echo=TRUE}
+p1 <- ggplot(df, aes(x=CVDTEST, y=PF, fill=CVDTEST)) + geom_boxplot()
+p2 <- ggplot(df, aes(x=CVDTEST, y=RF, fill=CVDTEST)) + geom_boxplot()
+
+grid.arrange(p1, p2, ncol=1, top=textGrob("Figure 7",gp=gpar(font=3)))
+```
+
+Figure 7 shows there is significant difference in the level of fear being infected with COVID-19 between respondents who already got infected compared to respondents who are not yet infected by the virus.
+```{r}
+wilcox.test(PF~CVDTEST, data=df)
+
+#The resulting p-value shows that there is sufficient evidence to reject the null hypothesis that the median of fear of being infected with COVID-19 between persons who tested positive and didn't test positive for COVID-19 are equal. Hence, the median of fear of being infected with COVID-19 between persons who tested positive and didn't test positive for COVID-19 are not equal.
+```
+
+
+```{r}
+wilcox.test(RF~CVDTEST, data=df)
+
+#The resulting p-value shows that there is no sufficient evidence to reject the null hypothesis that the median of fear of relative becoming infected with COVID-19 between persons who tested positive for COVID-19 and didn't test positive are equal. Hence, the median of fear of relative becoming infected with COVID-19 between persons who tested positive for COVID-19 and didn't test positive are equal.
+```
+
+
+```{r NUMHH, PF, and RF}
+p1 <- ggplot(df, aes(x=PF, y=NumHH)) + geom_point(color="cornflowerblue")
+p2 <- ggplot(df, aes(x=RF, y=NumHH)) + geom_point(color="cornflowerblue")
+p3 <- ggplot(df, aes(x=PF, y=RF)) + geom_point(color="cornflowerblue")
+p4 <- ggplot(df, aes(x=PF, y=MHEALTH)) + geom_point(color="cornflowerblue")
+p5 <- ggplot(df, aes(x=RF, y=MHEALTH)) + geom_point(color="cornflowerblue")
+
+grid.arrange(p1, p2, p3, p4, p5, ncol=2)
+```
+
+
+```{r}
+cor.test(df$NumHH,df$PF, method="spearman")
+
+#The resulting p-value shows that there is no sufficient evidence to reject the null hypothesis the true tau is equal to 0. Hence, there is no linear relationship between number of household members and fear of being infected with COVID-19.
+```
+
+```{r}
+cor.test(df$NumHH, df$RF, method="spearman")
+
+#The resulting p-value shows that there is no sufficient evidence to reject the null hypothesis that the true tau is equal to 0. Hence, there is no linear relationship between number of household members and fear of relative becoming infected with COVID-19.
+```
+
+
+```{r}
+cor.test(df$PF, df$RF, method="spearman")
+
+#The resulting p-value shows that there is sufficient evidence to reject the null hypothesis that the true tau is equal to 0. Hence, there is linear relationship between fear of being infected with COVID-19 and fear of relative becoming infected with COVID-19.
+#The correlation coefficient shows that there is moderate positive linear relationship between fear of being infected with COVID-19 and fear of relative becoming infected with COVID-19.
+```
+
+
+```{r}
+cor.test(df$MHEALTH, df$PF, method="spearman")
+
+#The resulting p-value shows that there is no sufficient evidence to reject the null hypothesis that the true tau is equal to 0. Hence, there is no linear relationship between mental health and fear of being infected with COVID-19.
+```
+
+
+```{r}
+cor.test(df$MHEALTH, df$RF, method="spearman")
+
+#The resulting p-value shows that there is no sufficient evidence to reject the null hypothesis that the true tau is equal to 0. Hence, there is no linear relationship between mental health and fear of relative becoming infected with COVID-19.
+```
+
+### Spearman Correlation Coefficient
+
+```{r cormatrix, include=TRUE, collapse=TRUE, results='asis', echo=TRUE}
+library(Hmisc)
+w <- rcorr(as.matrix(num), type="spearman")
+kable(w[1], caption="Correlation Coefficient")
+kable(w[3], caption="p-values")
+```
+
+## Conclusion
+Despite the nationwide COVID-19 vaccination for protection against COVID-19 and with the decrease in number of active cases, with COVID-19 known for being deadly, the level of fear of being infected with COVID-19 of the respondents are still high. Respondents' level of fear that a relative will catch the virus was higher than the fear they had for catching the virus itself. There is moderate positive linear relationship between level of fear of being infected with COVID-19 and the level of fear of a relative becoming infected with COVID-19. Female respondents have higher level of fear of COVID-19 than male respondents. With COVID-19 known to be highly deadly among elders, respondents from generation X have lower level of fear that a relative will catch COVID-19 compared to respondents from millennials and generation Z. There's no difference in the level of fear of COVID-19 between vaccinated and unvaccinated respondents. Furthermore, fear of COVID-19 is the same regardless of their area of residence and type of employment. Despite the pandemic, the respondents mental health are still in good condition.
+
+## Appendix
+
+```{r appendix, include=TRUE, echo=FALSE, results='asis'}
+kable(read_excel(path=pth,sheet="Fear of COVID-19 definitions"))
+```
+
+```{r detach packages}
+detach("package:readxl")
+detach("package:dplyr")
+detach("package:tidyverse")
+detach("package:knitr")
+detach("package:janitor")
+detach("package:Hmisc")
+detach("package:ggplot2")
+detach("package:gridExtra")
+detach("package:pastecs")
+detach("package:grid")
+```
